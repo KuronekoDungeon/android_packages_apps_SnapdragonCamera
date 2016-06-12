@@ -58,6 +58,7 @@ public class CameraSettings {
     public static final String KEY_VIDEO_QUALITY = "pref_video_quality_key";
     public static final String KEY_VIDEO_TIME_LAPSE_FRAME_INTERVAL = "pref_video_time_lapse_frame_interval_key";
     public static final String KEY_PICTURE_SIZE = "pref_camera_picturesize_key";
+    public static final String KEY_DNG_CAPTURE = "pref_camera_dng_capture_key";
     public static final String KEY_JPEG_QUALITY = "pref_camera_jpegquality_key";
     public static final String KEY_FOCUS_MODE = "pref_camera_focusmode_key";
     public static final String KEY_VIDEO_FOCUS_MODE = "pref_video_focusmode_key";
@@ -141,6 +142,8 @@ public class CameraSettings {
     private static final String KEY_QC_SUPPORTED_PREVIEW_FORMATS = "preview-format-values";
     private static final String KEY_SNAPCAM_SUPPORTED_HDR_MODES = "hdr-mode-values";
     private static final String KEY_SNAPCAM_SUPPORTED_HDR_NEED_1X = "hdr-need-1x-values";
+    public static final String KEY_SNAPCAM_DNG_CAPTURE = "dng-capture";
+    public static final String KEY_SNAPCAM_DNG_SIZE = "dng-size";
     public static final String KEY_QC_AE_BRACKETING = "ae-bracket-hdr";
     public static final String KEY_QC_AF_BRACKETING = "af-bracket";
     public static final String KEY_QC_RE_FOCUS = "re-focus";
@@ -674,6 +677,7 @@ public class CameraSettings {
         ListPreference autoExposure = group.findPreference(KEY_AUTOEXPOSURE);
         ListPreference antiBanding = group.findPreference(KEY_ANTIBANDING);
         ListPreference mIso = group.findPreference(KEY_ISO);
+        ListPreference dngCapture = group.findPreference(KEY_DNG_CAPTURE);
         ListPreference lensShade = group.findPreference(KEY_LENSSHADING);
         ListPreference histogram = group.findPreference(KEY_HISTOGRAM);
         ListPreference denoise = group.findPreference(KEY_DENOISE);
@@ -769,6 +773,9 @@ public class CameraSettings {
                     mIso, getSupportedIsoValues(mParameters));
         }
 
+        if (dngCapture != null && !CameraUtil.isSupported(mParameters, KEY_SNAPCAM_DNG_CAPTURE)) {
+            removePreference(group, dngCapture.getKey());
+        
         if (redeyeReduction != null) {
             filterUnsupportedOptions(group,
                     redeyeReduction, mParameters.getSupportedRedeyeReductionModes());
