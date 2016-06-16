@@ -99,6 +99,8 @@ import com.android.camera.data.MediaDetails;
 import com.android.camera.data.SimpleViewData;
 import com.android.camera.exif.ExifInterface;
 import com.android.camera.tinyplanet.TinyPlanetFragment;
+import com.android.camera.ui.CameraRootFrame;
+import com.android.camera.ui.CameraRootView;
 import com.android.camera.ui.ModuleSwitcher;
 import com.android.camera.ui.DetailsDialog;
 import com.android.camera.ui.FilmStripView;
@@ -190,10 +192,10 @@ public class CameraActivity extends Activity
     private VideoModule mVideoModule;
     private WideAnglePanoramaModule mPanoModule;
     private FrameLayout mAboveFilmstripControlLayout;
-    private FrameLayout mCameraRootFrame;
-    private View mCameraPhotoModuleRootView;
-    private View mCameraVideoModuleRootView;
-    private View mCameraPanoModuleRootView;
+    private CameraRootFrame mCameraRootFrame;
+    private CameraRootView mCameraPhotoModuleRootView;
+    private CameraRootView mCameraVideoModuleRootView;
+    private CameraRootView mCameraPanoModuleRootView;
     private FilmStripView mFilmStripView;
     private ProgressBar mBottomProgress;
     private View mPanoStitchingPanel;
@@ -626,19 +628,11 @@ public class CameraActivity extends Activity
 
         View decorView = getWindow().getDecorView();
         int currentSystemUIVisibility = decorView.getSystemUiVisibility();
-        boolean hidePreview = getResources().getBoolean(R.bool.hide_navigation_bar);
-
-        int systemUIVisibility = DEFAULT_SYSTEM_UI_VISIBILITY;
-        if (hidePreview)
-            systemUIVisibility |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-
-        int systemUINotVisible = View.SYSTEM_UI_FLAG_LOW_PROFILE | View.SYSTEM_UI_FLAG_FULLSCREEN;
-        if (hidePreview)
-            systemUINotVisible |= (View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-
-        int newSystemUIVisibility = systemUIVisibility
-                | (visible ? View.SYSTEM_UI_FLAG_VISIBLE : systemUINotVisible);
+        int newSystemUIVisibility = DEFAULT_SYSTEM_UI_VISIBILITY
+                | (visible ? View.SYSTEM_UI_FLAG_VISIBLE :
+                    View.SYSTEM_UI_FLAG_LOW_PROFILE
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         if (newSystemUIVisibility != currentSystemUIVisibility) {
             decorView.setSystemUiVisibility(newSystemUIVisibility);
         }
@@ -1411,53 +1405,15 @@ public class CameraActivity extends Activity
         GcamHelper.init(getContentResolver());
 
         getWindow().requestFeature(Window.FEATURE_ACTION_BAR);
-        setContentView(R.layout.camera_filmstrip);
 
-        mActionBar = getActionBar();
-        mActionBar.addOnMenuVisibilityListener(this);
-
-        if (ApiHelper.HAS_ROTATION_ANIMATION) {
-            setRotationAnimation();
-        }
-
-        mMainHandler = new MainHandler(getMainLooper());
-
-        mAboveFilmstripControlLayout =
-                (FrameLayout) findViewById(R.id.camera_above_filmstrip_layout);
-        mAboveFilmstripControlLayout.setFitsSystemWindows(true);
-        // Hide action bar first since we are in full screen mode first, and
-        // switch the system UI to lights-out mode.
-        this.setSystemBarsVisibility(false);
-        mPanoramaManager = AppManagerFactory.getInstance(this)
-                .getPanoramaStitchingManager();
-        mPlaceholderManager = AppManagerFactory.getInstance(this)
-                .getGcamProcessingManager();
-        mPanoramaManager.addTaskListener(mStitchingListener);
-        mPlaceholderManager.addTaskListener(mPlaceholderListener);
         LayoutInflater inflater = getLayoutInflater();
         View rootLayout = inflater.inflate(R.layout.camera, null, false);
-        mCameraRootFrame = (FrameLayout)rootLayout.findViewById(R.id.camera_root_frame);
-        mCameraPhotoModuleRootView = rootLayout.findViewById(R.id.camera_photo_root);
-        mCameraVideoModuleRootView = rootLayout.findViewById(R.id.camera_video_root);
-        mCameraPanoModuleRootView = rootLayout.findViewById(R.id.camera_pano_root);
-        mPanoStitchingPanel = findViewById(R.id.pano_stitching_progress_panel);
-        mBottomProgress = (ProgressBar) findViewById(R.id.pano_stitching_progress_bar);
-        mCameraPreviewData = new CameraPreviewData(rootLayout,
-                FilmStripView.ImageData.SIZE_FULL,
-                FilmStripView.ImageData.SIZE_FULL);
-        // Put a CameraPreviewData at the first position.
-        mWrappedDataAdapter = new FixedFirstDataAdapter(
-                new CameraDataAdapter(new ColorDrawable(
-                        getResources().getColor(R.color.photo_placeholder))),
-                mCameraPreviewData);
-        mFilmStripView = (FilmStripView) findViewById(R.id.filmstrip_view);
-        mFilmStripView.setViewGap(
-                getResources().getDimensionPixelSize(R.dimen.camera_film_strip_gap));
-        mPanoramaViewHelper = new PanoramaViewHelper(this);
-        mPanoramaViewHelper.onCreate();
-        mFilmStripView.setPanoramaViewHelper(mPanoramaViewHelper);
-        // Set up the camera preview first so the preview shows up ASAP.
-        mFilmStripView.setListener(mFilmStripListener);
+        mCameraRootFrame = (CameraRootFrame)rootLayout.findViewById(R.id.camera_root_frame);
+        mCameraPhotoModuleRootView =
+                (CameraRootView)rootLayout.findViewById(R.id.camera_photo_root);
+        mCameraVideoModuleRootView =
+                (CameraRootView)rootLayout.findViewById(R.id.camera_video_root);
+        mCameraPanoModuleRootView = (CameraRootView)rootLayout.findViewById(R.id.camera_pano_root);
 
         int moduleIndex = -1;
         if (MediaStore.INTENT_ACTION_VIDEO_CAMERA.equals(getIntent().getAction())
@@ -1488,6 +1444,48 @@ public class CameraActivity extends Activity
 
         mOrientationListener = new MyOrientationEventListener(this);
         setModuleFromIndex(moduleIndex);
+
+        setContentView(R.layout.camera_filmstrip);
+
+        mActionBar = getActionBar();
+        mActionBar.addOnMenuVisibilityListener(this);
+
+        if (ApiHelper.HAS_ROTATION_ANIMATION) {
+            setRotationAnimation();
+        }
+
+        mMainHandler = new MainHandler(getMainLooper());
+
+        mAboveFilmstripControlLayout =
+                (FrameLayout) findViewById(R.id.camera_above_filmstrip_layout);
+        mAboveFilmstripControlLayout.setFitsSystemWindows(true);
+        // Hide action bar first since we are in full screen mode first, and
+        // switch the system UI to lights-out mode.
+        this.setSystemBarsVisibility(false);
+        mPanoramaManager = AppManagerFactory.getInstance(this)
+                .getPanoramaStitchingManager();
+        mPlaceholderManager = AppManagerFactory.getInstance(this)
+                .getGcamProcessingManager();
+        mPanoramaManager.addTaskListener(mStitchingListener);
+        mPlaceholderManager.addTaskListener(mPlaceholderListener);
+        mPanoStitchingPanel = findViewById(R.id.pano_stitching_progress_panel);
+        mBottomProgress = (ProgressBar) findViewById(R.id.pano_stitching_progress_bar);
+        mCameraPreviewData = new CameraPreviewData(rootLayout,
+                FilmStripView.ImageData.SIZE_FULL,
+                FilmStripView.ImageData.SIZE_FULL);
+        // Put a CameraPreviewData at the first position.
+        mWrappedDataAdapter = new FixedFirstDataAdapter(
+                new CameraDataAdapter(new ColorDrawable(
+                        getResources().getColor(R.color.photo_placeholder))),
+                mCameraPreviewData);
+        mFilmStripView = (FilmStripView) findViewById(R.id.filmstrip_view);
+        mFilmStripView.setViewGap(
+                getResources().getDimensionPixelSize(R.dimen.camera_film_strip_gap));
+        mPanoramaViewHelper = new PanoramaViewHelper(this);
+        mPanoramaViewHelper.onCreate();
+        mFilmStripView.setPanoramaViewHelper(mPanoramaViewHelper);
+        // Set up the camera preview first so the preview shows up ASAP.
+        mFilmStripView.setListener(mFilmStripListener);
 
         if (!mSecureCamera) {
             mDataAdapter = mWrappedDataAdapter;
@@ -1828,50 +1826,46 @@ public class CameraActivity extends Activity
         mCameraPanoModuleRootView.setVisibility(View.GONE);
         mCameraRootFrame.removeAllViews();
         mCurrentModuleIndex = moduleIndex;
+
+        final CameraRootView rootView;
         switch (moduleIndex) {
             case ModuleSwitcher.VIDEO_MODULE_INDEX:
-                if(mVideoModule == null) {
+                if (mVideoModule == null) {
                     mVideoModule = new VideoModule();
                     mVideoModule.init(this, mCameraVideoModuleRootView);
                 }
                 mCurrentModule = mVideoModule;
-                mCameraRootFrame.addView(mCameraVideoModuleRootView);
-                mCameraVideoModuleRootView.setVisibility(View.VISIBLE);
-                break;
-
-            case ModuleSwitcher.PHOTO_MODULE_INDEX:
-                if(mPhotoModule == null) {
-                    mPhotoModule = new PhotoModule();
-                    mPhotoModule.init(this, mCameraPhotoModuleRootView);
-                }
-                mCurrentModule = mPhotoModule;
-                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
-                mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
+                rootView = mCameraVideoModuleRootView;
                 break;
 
             case ModuleSwitcher.WIDE_ANGLE_PANO_MODULE_INDEX:
-                if(mPanoModule == null) {
+                if (mPanoModule == null) {
                     mPanoModule = new WideAnglePanoramaModule();
                     mPanoModule.init(this, mCameraPanoModuleRootView);
                 }
                 mCurrentModule = mPanoModule;
-                mCameraRootFrame.addView(mCameraPanoModuleRootView);
-                mCameraPanoModuleRootView.setVisibility(View.VISIBLE);
+                rootView = mCameraPanoModuleRootView;
                 break;
 
+            case ModuleSwitcher.PHOTO_MODULE_INDEX:
             case ModuleSwitcher.LIGHTCYCLE_MODULE_INDEX: //Unused module for now
             case ModuleSwitcher.GCAM_MODULE_INDEX:  //Unused module for now
-            default:
-                // Fall back to photo mode.
-                if(mPhotoModule == null) {
+            default: // Fall back to photo mode.
+                if (mPhotoModule == null) {
                     mPhotoModule = new PhotoModule();
                     mPhotoModule.init(this, mCameraPhotoModuleRootView);
                 }
                 mCurrentModule = mPhotoModule;
-                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
-                mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
+                rootView = mCameraPhotoModuleRootView;
                 break;
         }
+        mCameraRootFrame.addView(rootView);
+        rootView.setVisibility(View.VISIBLE);
+
+        // Re-apply the last fitSystemWindows() run. Our views rely on this, but
+        // the framework's ActionBarOverlayLayout effectively prevents this if the
+        // actual insets haven't changed.
+        mCameraRootFrame.redoFitSystemWindows();
     }
 
     /**
